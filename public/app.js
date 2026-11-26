@@ -143,13 +143,16 @@ function initMap() {
   });
   if (bounds) state.map.fitBounds(bounds);
   drawBoundary();
-  state.layer = createLayer(state.map);
   let loadTimer = 0;
   state.map.addListener("idle", () => {
     clearTimeout(loadTimer);
     loadTimer = setTimeout(loadFeatures, 160);
+    updateBoundary();
   });
-  state.map.addListener("zoom_changed", () => { $("zoom-level").textContent = Math.round(state.map.getZoom()); });
+  state.map.addListener("zoom_changed", () => {
+    $("zoom-level").textContent = Math.round(state.map.getZoom());
+    updateBoundary();
+  });
   state.map.addListener("mousemove", (event) => {
     $("coords").textContent = `${event.latLng.lat().toFixed(6)}, ${event.latLng.lng().toFixed(6)}`;
   });
@@ -160,8 +163,9 @@ function initMap() {
       return;
     }
     const feature = hitFeature(event.latLng);
-    state.selectedId = feature ? feature.id : state.selectedId;
-    if (feature && state.layer) state.layer.draw();
+    if (!feature) return;
+    state.selectedId = feature.id;
+    refreshNetwork();
   });
   state.map.addListener("dblclick", (event) => {
     if (state.drawMode === "select") return;
@@ -171,7 +175,7 @@ function initMap() {
   state.map.addListener("rightclick", (event) => {
     const feature = state.drawMode === "select" ? hitFeature(event.latLng) : null;
     if (feature) state.selectedId = feature.id;
-    if (state.layer) state.layer.draw();
+    if (feature) refreshNetwork();
     openMenu(event.domEvent, feature, event.latLng);
   });
   rememberView();
@@ -207,11 +211,16 @@ function drawBoundary() {
     paths: ringsToPaths(geometry.coordinates),
     strokeColor: "#1f9d45",
     strokeWeight: 2,
-    fillColor: "#37c15b",
-    fillOpacity: 0.18,
+    fillOpacity: 0,
     clickable: false,
     zIndex: 1
   });
+  updateBoundary();
+}
+
+function updateBoundary() {
+  if (!state.boundary || !state.map) return;
+  state.boundary.setVisible(state.map.getZoom() < 12);
 }
 
 const DRAW_RANK = { bdg: 0, ap: 1, pole: 1, sla: 1, planp: 1, sp: 2, tp: 3, cab: 8, planl: 8, db: 8, pln: 8 };
@@ -230,9 +239,14 @@ async function loadFeatures() {
   try {
     const data = await api(`/api/features?networkId=${state.network.id}&west=${sw.lng()}&south=${sw.lat()}&east=${ne.lng()}&north=${ne.lat()}&zoom=${zoom}&types=${encodeURIComponent(types)}${countOnly}`);
     if (seq !== loadSeq) return;
-    state.layerFeatures = (data.features || []).slice().sort((a, b) => (DRAW_RANK[a.xType] ?? 4) - (DRAW_RANK[b.xType] ?? 4));
-    state.layerStamp = (state.layerStamp || 0) + 1;
-    if (state.layer) state.layer.draw();
+    const features = (data.features || []).slice().sort((a, b) => (DRAW_RANK[a.xType] ?? 4) - (DRAW_RANK[b.xType] ?? 4));
+    const layerKey = features.map((feature) => feature.id).join(",");
+    if (layerKey !== state.layerKey) {
+      state.layerFeatures = features;
+      state.layerKey = layerKey;
+      state.layerStamp = (state.layerStamp || 0) + 1;
+    }
+    refreshNetwork();
     $("scale-label").textContent = zoom < 15
       ? `${data.total} features. Zoom to 15 or closer to draw buildings and cables.`
       : `${state.layerFeatures.length} shown`;
@@ -242,99 +256,93 @@ async function loadFeatures() {
   }
 }
 
-function createLayer(map) {
-  const layer = new google.maps.OverlayView();
-  const canvas = document.createElement("canvas");
-  canvas.style.position = "absolute";
-  canvas.style.pointerEvents = "none";
-  layer.canvas = canvas;
-  layer.onAdd = function () {
-    this.getPanes().overlayLayer.appendChild(canvas);
-  };
-  layer.onRemove = function () {
-    canvas.remove();
-  };
-  layer.draw = function () {
-    paintNetwork(this);
-  };
-  layer.setMap(map);
-  return layer;
-}
-
-function worldPoint(lat, lng, scale) {
+function worldPoint(lat, lng) {
   const clamped = Math.max(-85, Math.min(85, lat));
   const sin = Math.sin(clamped * Math.PI / 180);
   return {
-    x: (lng + 180) / 360 * scale,
-    y: (0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)) * scale
+    x: (lng + 180) / 360,
+    y: 0.5 - Math.log((1 + sin) / (1 - sin)) / (4 * Math.PI)
   };
 }
 
-function paintNetwork(layer) {
-  const projection = layer.getProjection();
+function clearGround() {
+  if (state.ground) state.ground.setMap(null);
+  state.ground = null;
+  state.groundBounds = null;
+  state.groundZoom = null;
+}
+
+function refreshNetwork() {
   const map = state.map;
-  if (!projection || !map) return;
-  const bounds = map.getBounds();
-  if (!bounds) return;
-  const sw = projection.fromLatLngToDivPixel(bounds.getSouthWest());
-  const ne = projection.fromLatLngToDivPixel(bounds.getNorthEast());
-  const viewLeft = Math.min(sw.x, ne.x);
-  const viewTop = Math.min(sw.y, ne.y);
-  const viewW = Math.abs(ne.x - sw.x);
-  const viewH = Math.abs(sw.y - ne.y);
-  if (viewW < 2 || viewH < 2) return;
-  const canvas = layer.canvas;
+  if (!map || !map.getBounds()) return;
   const zoom = map.getZoom();
+  const view = map.getBounds();
   const stamp = `${state.layerStamp || 0}:${state.selectedId || 0}:${state.editingId || 0}`;
-  const cache = layer.cache;
-  if (cache && cache.zoom === zoom && cache.stamp === stamp) {
-    const anchor = projection.fromLatLngToDivPixel(cache.anchor);
-    if (anchor.x <= viewLeft && anchor.y <= viewTop && anchor.x + cache.width >= viewLeft + viewW && anchor.y + cache.height >= viewTop + viewH) {
-      canvas.style.left = `${anchor.x}px`;
-      canvas.style.top = `${anchor.y}px`;
-      return;
-    }
+  if (zoom < 15 || !state.layerFeatures.length) {
+    clearGround();
+    state.groundStamp = stamp;
+    return;
   }
-  const pad = 180;
-  const left = viewLeft - pad;
-  const top = viewTop - pad;
-  const width = viewW + pad * 2;
-  const height = viewH + pad * 2;
-  const dpr = window.devicePixelRatio || 1;
-  canvas.style.left = `${left}px`;
-  canvas.style.top = `${top}px`;
-  canvas.style.width = `${width}px`;
-  canvas.style.height = `${height}px`;
-  const pixelW = Math.max(1, Math.floor(width * dpr));
-  const pixelH = Math.max(1, Math.floor(height * dpr));
-  if (canvas.width !== pixelW) canvas.width = pixelW;
-  if (canvas.height !== pixelH) canvas.height = pixelH;
+  if (state.ground && state.groundStamp === stamp && state.groundBounds && Math.abs((state.groundZoom || 0) - zoom) < 0.05 && state.groundBounds.contains(view.getNorthEast()) && state.groundBounds.contains(view.getSouthWest())) return;
+  const southWest = view.getSouthWest();
+  const northEast = view.getNorthEast();
+  const latPad = (northEast.lat() - southWest.lat()) * 0.5;
+  const lngPad = (northEast.lng() - southWest.lng()) * 0.5;
+  const bounds = new google.maps.LatLngBounds(
+    { lat: southWest.lat() - latPad, lng: southWest.lng() - lngPad },
+    { lat: northEast.lat() + latPad, lng: northEast.lng() + lngPad }
+  );
+  const west = bounds.getSouthWest().lng();
+  const east = bounds.getNorthEast().lng();
+  const north = worldPoint(bounds.getNorthEast().lat(), west);
+  const south = worldPoint(bounds.getSouthWest().lat(), west);
+  const pixels = 256 * Math.pow(2, zoom);
+  let width = Math.abs(east - west) / 360 * pixels;
+  let height = Math.abs(south.y - north.y) * pixels;
+  const longest = Math.max(width, height, 1);
+  const limit = longest > 2200 ? 2200 / longest : 1;
+  width = Math.max(2, Math.round(width * limit));
+  height = Math.max(2, Math.round(height * limit));
+  const canvas = document.createElement("canvas");
+  const dpr = Math.min(window.devicePixelRatio || 1, 2);
+  canvas.width = Math.round(width * dpr);
+  canvas.height = Math.round(height * dpr);
   const ctx = canvas.getContext("2d");
   ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-  ctx.clearRect(0, 0, width, height);
   ctx.lineJoin = "round";
   ctx.lineCap = "round";
-  const originLL = projection.fromDivPixelToLatLng(new google.maps.Point(left, top));
-  const scale = 256 * Math.pow(2, zoom);
-  const origin = worldPoint(originLL.lat(), originLL.lng(), scale);
+  const project = (lat, lng) => {
+    const point = worldPoint(lat, lng);
+    return {
+      x: (lng - west) / (east - west) * width,
+      y: (point.y - north.y) / (south.y - north.y) * height
+    };
+  };
   for (const feature of state.layerFeatures) {
     if (feature.id === state.editingId) continue;
     const type = feature.geometry && feature.geometry.type;
-    if (type === "Polygon" || type === "MultiPolygon") paintPolygon(ctx, feature, origin, scale);
-    else if (type === "LineString" || type === "MultiLineString") paintLine(ctx, feature, origin, scale);
+    if (type === "Polygon" || type === "MultiPolygon") paintPolygon(ctx, feature, project);
+    else if (type === "LineString" || type === "MultiLineString") paintLine(ctx, feature, project);
   }
-  if (state.settings && state.settings.showLabels && zoom >= 18) paintLabels(ctx, projection, left, top);
-  layer.cache = { zoom, stamp, anchor: originLL, width, height };
+  if (state.settings && state.settings.showLabels && zoom >= 18) paintLabels(ctx, project);
+  const previous = state.ground;
+  const overlay = new google.maps.GroundOverlay(canvas.toDataURL("image/png"), bounds, { clickable: false });
+  overlay.setMap(map);
+  state.ground = overlay;
+  state.groundBounds = bounds;
+  state.groundZoom = zoom;
+  state.groundStamp = stamp;
+  if (previous) previous.setMap(null);
 }
 
-function paintPolygon(ctx, feature, origin, scale) {
+function paintPolygon(ctx, feature, project) {
   const geometry = feature.geometry;
   const rings = geometry.type === "Polygon" ? [geometry.coordinates] : geometry.coordinates;
   const style = themedStyle(feature);
   const selected = feature.id === state.selectedId;
   ctx.beginPath();
   for (const polygon of rings) {
-    for (const ring of polygon) addRing(ctx, ring, origin, scale);
+    for (const ring of polygon) addRing(ctx, ring, project);
   }
   ctx.fillStyle = hexToRgba(style.fill || "#E0E0E0", selected ? 0.96 : 0.9);
   ctx.fill("evenodd");
@@ -344,45 +352,41 @@ function paintPolygon(ctx, feature, origin, scale) {
   ctx.stroke();
 }
 
-function paintLine(ctx, feature, origin, scale) {
+function paintLine(ctx, feature, project) {
   const geometry = feature.geometry;
   const lines = geometry.type === "LineString" ? [geometry.coordinates] : geometry.coordinates;
   const style = themedStyle(feature);
   const selected = feature.id === state.selectedId;
   ctx.beginPath();
-  for (const line of lines) addRing(ctx, line, origin, scale);
+  for (const line of lines) addRing(ctx, line, project);
   ctx.lineWidth = (style.weight || 2) + (selected ? 2 : 0);
   ctx.strokeStyle = style.stroke || "#0B5394";
   ctx.setLineDash(style.dash ? [6, 5] : []);
   ctx.stroke();
 }
 
-function addRing(ctx, ring, origin, scale) {
+function addRing(ctx, ring, project) {
   if (!ring || ring.length < 2) return;
   for (let i = 0; i < ring.length; i += 1) {
-    const point = worldPoint(ring[i][1], ring[i][0], scale);
-    const x = point.x - origin.x;
-    const y = point.y - origin.y;
-    if (i === 0) ctx.moveTo(x, y);
-    else ctx.lineTo(x, y);
+    const point = project(ring[i][1], ring[i][0]);
+    if (i === 0) ctx.moveTo(point.x, point.y);
+    else ctx.lineTo(point.x, point.y);
   }
 }
 
-function paintLabels(ctx, projection, left, top) {
+function paintLabels(ctx, project) {
   ctx.font = "11px sans-serif";
   ctx.textAlign = "center";
   ctx.setLineDash([]);
   let count = 0;
   for (const feature of state.layerFeatures) {
     if (!feature.name || !feature.centroid || count >= 40) continue;
-    const pixel = projection.fromLatLngToDivPixel(new google.maps.LatLng(feature.centroid.lat, feature.centroid.lng));
-    const x = pixel.x - left;
-    const y = pixel.y - top;
+    const pixel = project(feature.centroid.lat, feature.centroid.lng);
     ctx.lineWidth = 3;
     ctx.strokeStyle = "rgba(255,255,255,0.9)";
-    ctx.strokeText(feature.name, x, y);
+    ctx.strokeText(feature.name, pixel.x, pixel.y);
     ctx.fillStyle = "#202020";
-    ctx.fillText(feature.name, x, y);
+    ctx.fillText(feature.name, pixel.x, pixel.y);
     count += 1;
   }
 }
@@ -527,7 +531,7 @@ function ringsToPaths(rings) {
 
 function selectFeature(id) {
   state.selectedId = id;
-  if (state.layer) state.layer.draw();
+  refreshNetwork();
 }
 
 function hideMenu() { $("context-menu").hidden = true; }
@@ -652,7 +656,7 @@ async function editShape(id) {
   overlay.setEditable(true);
   state.editOverlay = overlay;
   state.editingId = id;
-  if (state.layer) state.layer.draw();
+  refreshNetwork();
   openPanel("Edit shape", `<p class="hint">Drag the points, then save.</p>
     <div class="panel-actions"><button class="primary" id="save-shape" type="button">Save shape</button></div>`);
   $("save-shape").onclick = async () => {

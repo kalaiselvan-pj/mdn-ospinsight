@@ -1,14 +1,24 @@
-# Medianet OSP Insight
+# OSPINSIGHT
 
-Network map for the Medianet GPON outside plant. It replaces the hosted OSPInsight site with a local login, Google Map, and the same network objects: buildings, cables, access points, splices, and term points.
+The outside plant map for Medianet across Malé, Hulhumalé and Addu City the islands.
 
-## Another computer
+OSPINSIGHT is the map for the Medianet GPON network. Sign in, open the network on Google Maps, and work with buildings, cables, access points, splices, and term points. The network is stored in a local PostgreSQL database.
 
-The network is already in `db/medianet_ospinsight.sql.gz`. Restore that file into your own local PostgreSQL. The app does not connect to the old OSPInsight server.
+## What you can do
+
+- Sign in with the Medianet account.
+- Browse the network map. Buildings, cables, splices, and access points draw once you zoom in.
+- Search for an object and open it to view or edit its attributes.
+- Draw new buildings, cables, and equipment on the map.
+- Use the sidebar for the network, default types, attributes, themes, bookmarks, alarms, field notes, the log, and settings.
+
+## Use this application
+
+The network is in `db/medianet_ospinsight.sql.gz`. Restore that file into a local PostgreSQL database that is only for this application.
 
 1. Install Node.js and PostgreSQL.
 2. Copy `.env.example` to `.env`.
-3. Set `DATABASE_URL` to your local database, set `JWT_SECRET` to any long random string, and set `GOOGLE_MAPS_API_KEY`.
+3. Set `DATABASE_URL` to that local database, set `JWT_SECRET` to a long random string, and set `GOOGLE_MAPS_API_KEY`.
 4. Install, restore, and start:
 
 ```
@@ -17,22 +27,6 @@ npm run restore
 npm start
 ```
 
-Open http://localhost:8080 and sign in as `Medianet_Edit`. The password is the office account password shared with you. The restore creates that login in your database.
+Open http://localhost:8080 and sign in as `Medianet_Edit`. The password is the Medianet account password. The restore creates that login in the database.
 
-`npm run restore` only writes to the database named in `DATABASE_URL`. Use a database that is only for this app.
-
-## This office laptop
-
-The app uses its own PostgreSQL on port 5433, so the office database on port 5432 is left as it is. Start it with `start-office.ps1`. The network is already loaded there. `npm run dump` refreshes `db/medianet_ospinsight.sql.gz` from that database.
-
-## Office virtual machine
-
-Copy this folder, including `.env`, onto the VM. Install Docker, then:
-
-```
-docker compose up -d --build
-```
-
-The site listens on port 8080. The database lives in the `ospdata` Docker volume. Restore `db/medianet_ospinsight.sql.gz` into that database. The app does not download the old OSPInsight server.
-
-Google Maps draws the network, so the VM needs outbound access to Google and the browser key must allow the VM address.
+`npm run restore` writes only to the database named in `DATABASE_URL`.

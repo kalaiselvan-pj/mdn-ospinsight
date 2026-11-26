@@ -8,21 +8,44 @@
 </head>
 <body>
   <section id="login-screen">
+    <div class="login-hero">
+      <div class="login-brand">
+        <img src="/logo.png" alt="">
+        <div>
+          <strong>OSPINSIGHT</strong>
+          <span>Medianet</span>
+        </div>
+      </div>
+      <h1>Every building, every cable — one clear map.</h1>
+      <p class="login-lead">The outside plant map for Medianet across Malé, Hulhumalé and Addu City the islands.</p>
+      <ul class="login-points">
+        <li><b>Network map</b><span>Buildings, cables, splices and access points on the live map.</span></li>
+        <li><b>Object details</b><span>Open any item to view and edit its attributes.</span></li>
+        <li><b>Draw</b><span>Add buildings, cables and equipment directly on the map.</span></li>
+      </ul>
+      <p class="login-copy">© 2026 Medianet · OSPINSIGHT</p>
+    </div>
     <form id="login-form" class="login-card" autocomplete="off">
-      <div class="wordmark large"><span>OSP</span>INSIGHT<i></i></div>
-      <div class="brand-sub">Medianet</div>
-      <input id="login-user" name="osp-office-login" autocomplete="off" placeholder="Login" required>
+      <h2>Sign in</h2>
+      <p class="login-note">Use your Medianet network account to continue.</p>
+      <label for="login-user">Login</label>
+      <input id="login-user" name="osp-office-login" autocomplete="off" placeholder="Medianet_Edit" required>
+      <label for="login-pass">Password</label>
       <input id="login-pass" name="osp-office-secret" class="secret" type="text" autocomplete="off" placeholder="Password" required>
-      <button type="submit">Login</button>
+      <button type="submit">Sign in</button>
       <p id="login-error" class="error"></p>
+      <p class="login-foot">Access is limited to authorised Medianet staff.</p>
     </form>
   </section>
 
   <div id="app" hidden>
     <aside id="sidebar">
       <div class="brand-block">
-        <div class="wordmark"><span>OSP</span>INSIGHT<i></i></div>
-        <div class="brand-sub light">Medianet</div>
+        <img class="app-logo" src="/logo.png" alt="">
+        <div>
+          <div class="wordmark"><span>OSP</span>INSIGHT<i></i></div>
+          <div class="brand-sub light">Medianet</div>
+        </div>
       </div>
       <h1>Network Map</h1>
       <div class="search-wrap">
