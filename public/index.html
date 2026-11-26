@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>OSPINSIGHT</title>
+  <link rel="stylesheet" href="/styles.css">
+</head>
+<body>
+  <section id="login-screen">
+    <form id="login-form" class="login-card" autocomplete="off">
+      <div class="wordmark large"><span>OSP</span>INSIGHT<i></i></div>
+      <div class="brand-sub">Medianet</div>
+      <input id="login-user" name="osp-office-login" autocomplete="off" placeholder="Login" required>
+      <input id="login-pass" name="osp-office-secret" class="secret" type="text" autocomplete="off" placeholder="Password" required>
+      <button type="submit">Login</button>
+      <p id="login-error" class="error"></p>
+    </form>
+  </section>
+
+  <div id="app" hidden>
+    <aside id="sidebar">
+      <div class="brand-block">
+        <div class="wordmark"><span>OSP</span>INSIGHT<i></i></div>
+        <div class="brand-sub light">Medianet</div>
+      </div>
+      <h1>Network Map</h1>
+      <div class="search-wrap">
+        <span class="search-icon">⌕</span>
+        <input id="search" placeholder="Search..." autocomplete="off">
+        <button id="search-clear" type="button" title="Clear">×</button>
+        <div id="search-results"></div>
+      </div>
+      <nav id="nav">
+        <button class="nav-item" data-panel="user" type="button"><span class="ico">👤</span><span id="user-label">User</span><span class="chev">▾</span></button>
+        <div class="sub" data-for="user">
+          <button type="button" id="logout">Logout</button>
+        </div>
+        <button class="nav-item" data-panel="network" type="button"><span class="ico">⧉</span>Network<span id="network-badge" class="badge">GPON</span></button>
+        <div class="sub" data-for="network" id="network-list"></div>
+        <button class="nav-item" data-panel="types" type="button"><span class="ico">☰</span>Default Types<span class="chev">▾</span></button>
+        <div class="sub" data-for="types" id="type-list"></div>
+        <button class="nav-item" data-panel="attributes" type="button"><span class="ico">☰</span>Default Attributes<span class="chev">▾</span></button>
+        <div class="sub" data-for="attributes" id="attribute-list"></div>
+        <button class="nav-item" data-panel="themes" type="button"><span class="ico">☰</span>Themes<span class="chev">▾</span></button>
+        <div class="sub" data-for="themes" id="theme-list"></div>
+        <button class="nav-item" data-panel="maptools" type="button"><span class="ico">🗺</span>Map<span class="chev">▾</span></button>
+        <div class="sub" data-for="maptools">
+          <button type="button" data-action="bookmark">Bookmarks</button>
+          <button type="button" data-action="clear-highlight">Clear Highlights</button>
+          <button type="button" data-action="clear-map">Clear Map</button>
+          <button type="button" data-action="geocode">Geocode Address</button>
+          <button type="button" data-action="layers">Layer Control</button>
+          <button type="button" data-action="refresh">Update Map</button>
+        </div>
+        <button class="nav-item" data-panel="alarms" type="button"><span class="ico">☰</span>Alarm Viewer</button>
+        <button class="nav-item" data-panel="notes" type="button"><span class="ico">☰</span>Field Notes</button>
+        <button class="nav-item" data-panel="log" type="button"><span class="ico">☰</span>Log</button>
+        <button class="nav-item" data-panel="settings" type="button"><span class="ico">⚙</span>Settings</button>
+      </nav>
+    </aside>
+    <main>
+      <div id="map"></div>
+      <div class="map-tools">
+        <button type="button" id="base-map-btn" title="Base Maps">▦</button>
+        <div class="zoom-history">
+          <button type="button" id="back-view" title="Go to last map view">‹</button>
+          <button type="button" id="next-view" title="Go to next map view" disabled>›</button>
+        </div>
+        <button type="button" id="zoom-in" title="Zoom in">+</button>
+        <button type="button" id="zoom-out" title="Zoom out">−</button>
+        <div id="zoom-level">12</div>
+      </div>
+      <div id="base-map-menu" hidden>
+        <button type="button" data-map="roadmap">Road</button>
+        <button type="button" data-map="terrain">Terrain</button>
+        <button type="button" data-map="satellite">Satellite</button>
+        <button type="button" data-map="hybrid">Hybrid</button>
+      </div>
+      <div id="draw-bar">
+        <button type="button" data-draw="select" class="active">Select</button>
+        <button type="button" data-draw="bdg">Building</button>
+        <button type="button" data-draw="cab">Cable</button>
+        <button type="button" data-draw="ap">Access Point</button>
+        <button type="button" data-draw="sp">Splice</button>
+        <button type="button" data-draw="tp">Term Point</button>
+        <button type="button" data-draw="pole">Pole</button>
+        <button type="button" data-draw="sla">Slack</button>
+        <button type="button" data-draw="db">Duct Bank</button>
+        <button type="button" data-draw="pln">Aerial Strand</button>
+        <button type="button" data-draw="planl">Plan Line</button>
+        <button type="button" data-draw="planp">Plan Point</button>
+        <button type="button" id="finish-draw" hidden>Finish</button>
+        <button type="button" id="cancel-draw" hidden>Cancel</button>
+      </div>
+      <div id="status-bar"><span id="scale-label"></span><span id="coords"></span></div>
+      <div id="context-menu" hidden></div>
+      <section id="float-panel" hidden>
+        <header>
+          <h2 id="panel-title">Details</h2>
+          <button type="button" id="panel-close" title="Close">×</button>
+        </header>
+        <div id="panel-body"></div>
+      </section>
+    </main>
+  </div>
+  <script src="/app.js"></script>
+</body>
+</html>
