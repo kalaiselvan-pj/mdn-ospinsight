@@ -7,6 +7,7 @@ import dotenv from "dotenv";
 import { pool, ensureSchema, seedUser, seedNetwork, logAction } from "./db.js";
 import { geometryBounds, styleFor, DEFAULT_STYLES } from "../scripts/geo.js";
 import { importData } from "../scripts/import-data.js";
+import { fetchLiveOspReports, mapOspTypes } from "./osp-reports.js";
 
 dotenv.config();
 
@@ -285,6 +286,43 @@ app.get("/api/bootstrap", auth, async (req, res) => {
     counts: counts.rows,
     settings: Object.fromEntries(settings.rows.map((row) => [row.key, row.value])),
     bookmarks: bookmarks.rows
+  });
+});
+
+app.get("/api/reports", auth, async (_req, res) => {
+  try {
+    const live = await fetchLiveOspReports();
+    if (live?.networks?.length) {
+      res.json(live);
+      return;
+    }
+  } catch (error) {
+    console.error("OSPInsight reports", error.message);
+  }
+  const [byNetwork, byType] = await Promise.all([
+    pool.query(`
+      SELECT n.name, count(f.id)::int AS count
+      FROM networks n
+      LEFT JOIN features f ON f.network_id = n.id
+      GROUP BY n.name
+      ORDER BY n.name
+    `),
+    pool.query(`
+      SELECT x_type,
+        count(*) FILTER (WHERE NULLIF(properties->>'createtime','') IS NOT NULL)::int AS added,
+        count(*) FILTER (
+          WHERE NULLIF(properties->>'updatetime','') IS NOT NULL
+            AND properties->>'updatetime' IS DISTINCT FROM properties->>'createtime'
+        )::int AS modified,
+        count(*)::int AS total
+      FROM features
+      GROUP BY x_type
+    `)
+  ]);
+  res.json({
+    source: "local",
+    networks: byNetwork.rows,
+    types: mapOspTypes(byType.rows)
   });
 });
 

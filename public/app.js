@@ -92,6 +92,12 @@ async function boot() {
   $("login-screen").hidden = true;
   $("app").hidden = false;
   renderSidebar();
+  try {
+    await showReports();
+  } catch (error) {
+    console.error(error);
+    showMapView();
+  }
   if (!window.google?.maps) await loadGoogle(data.googleMapsKey);
   initMap();
 }
@@ -1796,6 +1802,11 @@ function goView(view) {
 document.querySelectorAll(".nav-item").forEach((button) => {
   button.addEventListener("click", async () => {
     const panel = button.dataset.panel;
+    if (panel === "reports") {
+      await showReports();
+      return;
+    }
+    if (panel === "maptools") showMapView();
     const sub = document.querySelector(`.sub[data-for="${panel}"]`);
     if (sub) {
       sub.classList.toggle("open");
@@ -1810,7 +1821,7 @@ document.querySelectorAll(".nav-item").forEach((button) => {
 });
 
 document.querySelector(".sub[data-for='maptools']").addEventListener("click", (event) => {
-  const action = event.target.dataset.action;
+  const action = event.target.closest("button")?.dataset.action;
   if (action === "refresh") loadFeatures();
   if (action === "clear-highlight") { state.selectedId = null; loadFeatures(); }
   if (action === "clear-map") { state.visible = Object.fromEntries(Object.keys(state.visible).map((key) => [key, false])); renderLegend(); loadFeatures(); }
@@ -1837,6 +1848,7 @@ $("network-list").addEventListener("click", (event) => {
   if (!network) return;
   state.network = network;
   $("network-badge").textContent = network.name;
+  showMapView();
   drawBoundary();
   const bounds = boundsOf(network.boundary);
   if (bounds) state.map.fitBounds(bounds);
@@ -2027,6 +2039,196 @@ async function showLog() {
   openPanel("Log", rows.map((row) => `<div class="list-card"><strong>${escapeHtml(row.action)}</strong><div class="muted">${escapeHtml(row.username || "")} · ${new Date(row.created_at).toLocaleString()}</div><div>${escapeHtml(JSON.stringify(row.detail))}</div></div>`).join("") || `<p class="muted">No log entries.</p>`);
 }
 
+const REPORT_TYPE_ORDER = [
+  "access_point", "building", "cable", "ductbank", "splice_point", "term_point",
+  "slack", "pole", "mile_line", "spec", "route"
+];
+
+function niceMax(value) {
+  if (!value || value <= 0) return 10;
+  const exp = 10 ** Math.floor(Math.log10(value));
+  const n = value / exp;
+  const nice = n <= 1 ? 1 : n <= 2 ? 2 : n <= 2.5 ? 2.5 : n <= 5 ? 5 : 10;
+  return nice * exp;
+}
+
+function formatTick(value) {
+  if (value >= 1000) {
+    const k = value / 1000;
+    return Number.isInteger(k) ? `${k}k` : `${k.toFixed(1)}k`;
+  }
+  return String(Math.round(value));
+}
+
+function setViewMode(view) {
+  state.view = view;
+  $("reports-view").hidden = view !== "reports";
+  $("side-title").textContent = view === "reports" ? "Reports" : "Network Map";
+  document.querySelector('[data-panel="reports"]')?.classList.toggle("open", view === "reports");
+}
+
+async function showReports() {
+  setViewMode("reports");
+  closePanel();
+  hideChartTip();
+  const data = await api("/api/reports");
+  renderDashKpis(data.networks || [], data.types || []);
+  renderCountChart(data.networks || []);
+  renderActivityChart(data.types || []);
+  $("dash-stamp").textContent = new Date().toLocaleString(undefined, {
+    weekday: "short", day: "numeric", month: "short", year: "numeric"
+  });
+}
+
+function showMapView() {
+  setViewMode("map");
+  hideChartTip();
+}
+
+function chartFillDefs(prefix) {
+  return `<defs>
+    <linearGradient id="${prefix}-h" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#1a8f7c"/>
+      <stop offset="100%" stop-color="#4ee0c4"/>
+    </linearGradient>
+    <linearGradient id="${prefix}-v" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#1a8f7c"/>
+      <stop offset="100%" stop-color="#4ee0c4"/>
+    </linearGradient>
+    <linearGradient id="${prefix}-amber" x1="0" y1="1" x2="0" y2="0">
+      <stop offset="0%" stop-color="#c98412"/>
+      <stop offset="100%" stop-color="#f0b429"/>
+    </linearGradient>
+  </defs>`;
+}
+
+function renderDashKpis(networks, types) {
+  const total = networks.reduce((sum, row) => sum + Number(row.count || 0), 0);
+  const added = types.reduce((sum, row) => sum + Number(row.added || 0), 0);
+  const modified = types.reduce((sum, row) => sum + Number(row.modified || 0), 0);
+  const usedTypes = types.filter((row) => Number(row.total || row.added || 0) > 0).length;
+  $("dash-kpis").innerHTML = `
+    <div class="kpi"><em>Spatial objects</em><strong>${total.toLocaleString()}</strong><span>All networks</span></div>
+    <div class="kpi"><em>Networks</em><strong>${networks.length}</strong><span>${escapeHtml(networks.map((row) => row.name).join(", ") || "None")}</span></div>
+    <div class="kpi"><em>Object types</em><strong>${usedTypes}</strong><span>With stored data</span></div>
+    <div class="kpi"><em>Added / modified</em><strong>${added.toLocaleString()}</strong><span>${modified.toLocaleString()} later edited</span></div>`;
+}
+
+function hideChartTip() {
+  const tip = $("chart-tip");
+  if (tip) tip.hidden = true;
+  document.querySelectorAll(".chart-bar.hot").forEach((bar) => bar.classList.remove("hot"));
+}
+
+function showChartTip(event, bar) {
+  const tip = $("chart-tip");
+  const box = $("reports-view").getBoundingClientRect();
+  document.querySelectorAll(".chart-bar.hot").forEach((item) => item.classList.remove("hot"));
+  bar.classList.add("hot");
+  tip.hidden = false;
+  tip.innerHTML = `<b>${escapeHtml(bar.dataset.name)}</b><span>${escapeHtml(bar.dataset.series)}</span><strong>${Number(bar.dataset.value || 0).toLocaleString()}</strong>`;
+  const width = tip.offsetWidth || 160;
+  let x = event.clientX - box.left + 16;
+  let y = event.clientY - box.top - 8;
+  if (x + width + 12 > box.width) x = event.clientX - box.left - width - 12;
+  tip.style.left = `${Math.max(8, x)}px`;
+  tip.style.top = `${Math.max(8, y)}px`;
+}
+
+function bindChartTips(root) {
+  root.querySelectorAll(".chart-bar").forEach((bar) => {
+    bar.addEventListener("pointerenter", (event) => showChartTip(event, bar));
+    bar.addEventListener("pointermove", (event) => showChartTip(event, bar));
+    bar.addEventListener("pointerleave", hideChartTip);
+  });
+}
+
+function renderCountChart(networks) {
+  const rows = networks.length ? networks : [{ name: "None", count: 0 }];
+  const max = niceMax(Math.max(...rows.map((row) => Number(row.count) || 0), 0));
+  const ticks = 6;
+  const W = 980;
+  const left = 96;
+  const right = 88;
+  const top = 12;
+  const rowH = 56;
+  const axisH = 46;
+  const H = top + rows.length * rowH + axisH;
+  const innerW = W - left - right;
+  const grid = Array.from({ length: ticks + 1 }, (_, i) => {
+    const value = (max / ticks) * i;
+    const x = left + (innerW * i) / ticks;
+    const base = top + rows.length * rowH;
+    return `<line x1="${x}" y1="${top}" x2="${x}" y2="${base}" stroke="#cfe4df"/>
+      <text x="${x}" y="${base + 16}" text-anchor="middle" fill="#5d7a82" font-size="11">${formatTick(value)}</text>`;
+  }).join("");
+  const bars = rows.map((row, index) => {
+    const count = Number(row.count) || 0;
+    const y = top + index * rowH + 12;
+    const width = max ? (count / max) * innerW : 0;
+    return `<text x="${left - 12}" y="${y + 18}" text-anchor="end" fill="#0b3d4a" font-size="13" font-weight="600">${escapeHtml(row.name)}</text>
+      <rect class="chart-bar" data-name="${escapeHtml(row.name)}" data-series="Total objects" data-value="${count}"
+        x="${left}" y="${y}" width="${Math.max(width, count ? 4 : 0)}" height="28" rx="6" fill="url(#count-h)"/>
+      <text x="${left + width + 10}" y="${y + 19}" fill="#0b3d4a" font-size="13" font-weight="700">${count.toLocaleString()}</text>`;
+  }).join("");
+  $("report-count-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg">${chartFillDefs("count")}${grid}${bars}
+    <text x="${left + innerW / 2}" y="${H - 4}" text-anchor="middle" fill="#5d7a82" font-size="12">Total</text></svg>
+    <div class="chart-legend"><span><i class="lg-added"></i>Total</span></div>`;
+  bindChartTips($("report-count-chart"));
+}
+
+function renderActivityChart(typeRows) {
+  const found = new Map((typeRows || []).map((row) => [row.name || row.x_type, row]));
+  const extra = (typeRows || []).map((row) => row.name || row.x_type).filter((name) => name && !REPORT_TYPE_ORDER.includes(name));
+  const keys = [...REPORT_TYPE_ORDER, ...extra];
+  const types = keys.map((name) => {
+    const row = found.get(name) || {};
+    return {
+      key: name,
+      added: Number(row.added || 0),
+      modified: Number(row.modified || row.updated || 0)
+    };
+  });
+  const max = niceMax(Math.max(...types.flatMap((item) => [item.added, item.modified]), 0));
+  const ticks = 4;
+  const W = 980;
+  const left = 52;
+  const right = 16;
+  const top = 16;
+  const bottom = 86;
+  const H = 360;
+  const innerW = W - left - right;
+  const innerH = H - top - bottom;
+  const groupW = innerW / types.length;
+  const barW = Math.max(7, groupW * 0.3);
+  const grid = Array.from({ length: ticks + 1 }, (_, i) => {
+    const value = max - (max / ticks) * i;
+    const y = top + (innerH * i) / ticks;
+    return `<line x1="${left}" y1="${y}" x2="${W - right}" y2="${y}" stroke="#cfe4df"/>
+      <text x="${left - 8}" y="${y + 4}" text-anchor="end" fill="#5d7a82" font-size="11">${formatTick(value)}</text>`;
+  }).join("");
+  const bars = types.map((item, index) => {
+    const gx = left + index * groupW;
+    const addedH = max ? (item.added / max) * innerH : 0;
+    const modifiedH = max ? (item.modified / max) * innerH : 0;
+    const base = top + innerH;
+    const ax = gx + groupW / 2 - barW - 2;
+    const mx = gx + groupW / 2 + 2;
+    const labelX = gx + groupW / 2;
+    const addedBar = `<rect class="chart-bar" data-name="${escapeHtml(item.key)}" data-series="Added" data-value="${item.added}"
+        x="${ax}" y="${base - Math.max(addedH, item.added ? 3 : 0)}" width="${barW}" height="${Math.max(addedH, item.added ? 3 : 0)}" rx="4" fill="url(#activity-v)"/>`;
+    const modifiedBar = `<rect class="chart-bar" data-name="${escapeHtml(item.key)}" data-series="Modified" data-value="${item.modified}"
+        x="${mx}" y="${base - Math.max(modifiedH, item.modified ? 3 : 0)}" width="${barW}" height="${Math.max(modifiedH, item.modified ? 3 : 0)}" rx="4" fill="url(#activity-amber)"/>`;
+    return `${addedBar}${modifiedBar}
+      <text x="${labelX}" y="${base + 14}" text-anchor="end" fill="#0b3d4a" font-size="11" transform="rotate(-40 ${labelX} ${base + 14})">${escapeHtml(item.key)}</text>`;
+  }).join("");
+  $("report-activity-chart").innerHTML = `<svg viewBox="0 0 ${W} ${H}" class="chart-svg">${chartFillDefs("activity")}${grid}${bars}
+    <text x="${left + innerW / 2}" y="${H - 6}" text-anchor="middle" fill="#5d7a82" font-size="12">Spatial Objects</text>
+    <text x="14" y="${top + innerH / 2}" text-anchor="middle" fill="#5d7a82" font-size="12" transform="rotate(-90 14 ${top + innerH / 2})"># Entries</text></svg>
+    <div class="chart-legend"><span><i class="lg-added"></i>added</span><span><i class="lg-modified"></i>modified</span></div>`;
+  bindChartTips($("report-activity-chart"));
+}
+
 function showSettings() {
   openPanel("Settings", `
     <form id="settings-form">
@@ -2054,6 +2256,7 @@ function escapeHtml(value) {
   return String(value ?? "").replace(/[&<>"']/g, (char) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" }[char]));
 }
 
+$("reports-view").addEventListener("scroll", hideChartTip);
 $("logout").onclick = () => { sessionStorage.removeItem("osp_token"); location.reload(); };
 $("panel-close").onclick = closePanel;
 $("search-clear").onclick = () => { $("search").value = ""; $("search-results").innerHTML = ""; };
@@ -2068,6 +2271,7 @@ $("search").addEventListener("input", () => {
     $("search-results").querySelectorAll("[data-id]").forEach((button) => {
       button.onclick = async () => {
         $("search-results").innerHTML = "";
+        showMapView();
         await zoomToFeature(Number(button.dataset.id));
         openFeature(Number(button.dataset.id), false);
       };
