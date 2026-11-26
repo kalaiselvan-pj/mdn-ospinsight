@@ -75,17 +75,32 @@ function walk(coords, visit) {
   coords.forEach((part) => walk(part, visit));
 }
 
+function miColor(colorNumber) {
+  const n = Number(colorNumber);
+  if (!Number.isFinite(n) || n < 0) return "#000000";
+  const r = n & 255;
+  const g = (n >> 8) & 255;
+  const b = (n >> 16) & 255;
+  return "#" + [r, g, b].map((part) => part.toString(16).padStart(2, "0")).join("");
+}
+
 export function parseMiStyle(value) {
   if (!value || typeof value !== "string") return null;
-  const match = value.match(/Pen\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*(-?\d+)\s*\)/i);
-  if (!match) return null;
-  const weight = Number(match[1]) || 2;
-  const colorNumber = Number(match[3]);
-  const r = colorNumber & 255;
-  const g = (colorNumber >> 8) & 255;
-  const b = (colorNumber >> 16) & 255;
-  const stroke = "#" + [r, g, b].map((n) => n.toString(16).padStart(2, "0")).join("");
-  return { kind: "line", stroke, weight };
+  const pen = value.match(/Pen\s*\(\s*([\d.]+)\s*,\s*([\d.]+)\s*,\s*(-?\d+)\s*\)/i);
+  const brush = value.match(/Brush\s*\(\s*([\d.]+)\s*,\s*(-?\d+)\s*,\s*(-?\d+)\s*\)/i);
+  if (!pen && !brush) return null;
+  const style = {};
+  if (pen) {
+    style.weight = Number(pen[1]) || 1;
+    style.stroke = miColor(pen[3]);
+  }
+  if (brush) {
+    style.fill = miColor(brush[2]);
+    style.kind = "polygon";
+  } else {
+    style.kind = "line";
+  }
+  return style;
 }
 
 export function parseOspStyle(value) {
@@ -130,9 +145,15 @@ export const DEFAULT_STYLES = {
 };
 
 export function styleFor(xType, properties) {
-  const fromOsp = parseOspStyle(properties && properties.ospstyle);
-  if (fromOsp) return fromOsp;
-  const fromMi = parseMiStyle(properties && properties.mi_style);
-  if (fromMi) return fromMi;
-  return DEFAULT_STYLES[xType] || { kind: "point", fill: "#2020FF", stroke: "#000000", weight: 1 };
+  const base = { ...(DEFAULT_STYLES[xType] || { kind: "point", fill: "#2020FF", stroke: "#000000", weight: 1 }) };
+  const overlay = parseOspStyle(properties && properties.ospstyle) || parseMiStyle(properties && properties.mi_style) || {};
+  const merged = { ...base, ...overlay };
+  if (!merged.fill) merged.fill = base.fill;
+  if (xType === "sp") {
+    merged.fill = "#FFFF00";
+    merged.stroke = "#000000";
+    merged.kind = "point";
+    merged.weight = 1;
+  }
+  return merged;
 }

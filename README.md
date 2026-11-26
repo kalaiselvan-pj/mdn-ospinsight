@@ -1,8 +1,8 @@
-# OSPINSIGHT
+# Medianet Atlas
 
 The outside plant map for Medianet across Malé, Hulhumalé and Addu City the islands.
 
-OSPINSIGHT is the map for the Medianet GPON network. Sign in, open the network on Google Maps, and work with buildings, cables, access points, splices, and term points. The network is stored in a local PostgreSQL database.
+Medianet Atlas is the map for the Medianet GPON network. Sign in, open the network on Google Maps, and work with buildings, cables, access points, splices, and term points. The network is stored in a local PostgreSQL database.
 
 ## What you can do
 

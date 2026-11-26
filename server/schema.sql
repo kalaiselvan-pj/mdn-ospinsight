@@ -104,3 +104,33 @@ CREATE TABLE IF NOT EXISTS app_settings (
   key text PRIMARY KEY,
   value jsonb NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS splice_pairs (
+  id serial PRIMARY KEY,
+  splice_id integer NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+  a_cable_id integer REFERENCES features(id) ON DELETE CASCADE,
+  a_fiber integer NOT NULL,
+  b_cable_id integer REFERENCES features(id) ON DELETE CASCADE,
+  b_fiber integer NOT NULL,
+  kind text NOT NULL DEFAULT 'splice',
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+CREATE INDEX IF NOT EXISTS splice_pairs_splice_idx ON splice_pairs(splice_id);
+
+CREATE TABLE IF NOT EXISTS object_files (
+  id serial PRIMARY KEY,
+  feature_id integer NOT NULL REFERENCES features(id) ON DELETE CASCADE,
+  name text NOT NULL,
+  note text NOT NULL DEFAULT '',
+  created_by text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);
+
+CREATE TABLE IF NOT EXISTS work_orders (
+  id serial PRIMARY KEY,
+  feature_id integer REFERENCES features(id) ON DELETE SET NULL,
+  title text NOT NULL,
+  status text NOT NULL DEFAULT 'open',
+  created_by text,
+  created_at timestamptz NOT NULL DEFAULT now()
+);

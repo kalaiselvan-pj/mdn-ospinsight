@@ -15,6 +15,12 @@ export const pool = new Pool({ connectionString: process.env.DATABASE_URL });
 export async function ensureSchema() {
   const sql = fs.readFileSync(path.join(__dirname, "schema.sql"), "utf8");
   await pool.query(sql);
+  await pool.query(`
+    UPDATE features
+    SET style = jsonb_build_object('kind', 'point', 'fill', '#FFFF00', 'stroke', '#000000', 'weight', 1)
+    WHERE x_type = 'sp'
+      AND (style->>'fill' IS NULL OR lower(style->>'fill') NOT IN ('#ffff00', '#ffe14d'))
+  `);
 }
 
 export async function seedNetwork() {

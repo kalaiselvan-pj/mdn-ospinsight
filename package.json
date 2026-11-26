@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "type": "module",
-  "description": "Medianet OSP Insight network map",
+  "description": "Medianet Atlas network map",
   "scripts": {
     "start": "node server/index.js",
     "setup": "node scripts/setup-db.js",

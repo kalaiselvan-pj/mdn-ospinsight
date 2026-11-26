@@ -3,7 +3,7 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>OSPINSIGHT</title>
+  <title>Medianet Atlas</title>
   <link rel="stylesheet" href="/styles.css">
 </head>
 <body>
@@ -12,8 +12,7 @@
       <div class="login-brand">
         <img src="/logo.png" alt="">
         <div>
-          <strong>OSPINSIGHT</strong>
-          <span>Medianet</span>
+          <strong>Medianet Atlas</strong>
         </div>
       </div>
       <h1>Every building, every cable — one clear map.</h1>
@@ -23,7 +22,7 @@
         <li><b>Object details</b><span>Open any item to view and edit its attributes.</span></li>
         <li><b>Draw</b><span>Add buildings, cables and equipment directly on the map.</span></li>
       </ul>
-      <p class="login-copy">© 2026 Medianet · OSPINSIGHT</p>
+      <p class="login-copy">© 2026 Medianet · Medianet Atlas</p>
     </div>
     <form id="login-form" class="login-card" autocomplete="off">
       <h2>Sign in</h2>
@@ -43,8 +42,7 @@
       <div class="brand-block">
         <img class="app-logo" src="/logo.png" alt="">
         <div>
-          <div class="wordmark"><span>OSP</span>INSIGHT<i></i></div>
-          <div class="brand-sub light">Medianet</div>
+          <div class="wordmark"><span>MDN</span> Atlas</div>
         </div>
       </div>
       <h1>Network Map</h1>
@@ -55,31 +53,31 @@
         <div id="search-results"></div>
       </div>
       <nav id="nav">
-        <button class="nav-item" data-panel="user" type="button"><span class="ico">👤</span><span id="user-label">User</span><span class="chev">▾</span></button>
+        <button class="nav-item" data-panel="user" type="button"><span class="mi mi-user"></span><span id="user-label">User</span><span class="chev">▾</span></button>
         <div class="sub" data-for="user">
-          <button type="button" id="logout">Logout</button>
+          <button type="button" id="logout"><span class="mi mi-logout"></span>Logout</button>
         </div>
-        <button class="nav-item" data-panel="network" type="button"><span class="ico">⧉</span>Network<span id="network-badge" class="badge">GPON</span></button>
+        <button class="nav-item" data-panel="network" type="button"><span class="mi mi-network"></span>Network<span id="network-badge" class="badge">GPON</span></button>
         <div class="sub" data-for="network" id="network-list"></div>
-        <button class="nav-item" data-panel="types" type="button"><span class="ico">☰</span>Default Types<span class="chev">▾</span></button>
+        <button class="nav-item" data-panel="types" type="button"><span class="mi mi-types"></span>Default Types<span class="chev">▾</span></button>
         <div class="sub" data-for="types" id="type-list"></div>
-        <button class="nav-item" data-panel="attributes" type="button"><span class="ico">☰</span>Default Attributes<span class="chev">▾</span></button>
+        <button class="nav-item" data-panel="attributes" type="button"><span class="mi mi-attrs"></span>Default Attributes<span class="chev">▾</span></button>
         <div class="sub" data-for="attributes" id="attribute-list"></div>
-        <button class="nav-item" data-panel="themes" type="button"><span class="ico">☰</span>Themes<span class="chev">▾</span></button>
+        <button class="nav-item" data-panel="themes" type="button"><span class="mi mi-theme"></span>Themes<span class="chev">▾</span></button>
         <div class="sub" data-for="themes" id="theme-list"></div>
-        <button class="nav-item" data-panel="maptools" type="button"><span class="ico">🗺</span>Map<span class="chev">▾</span></button>
+        <button class="nav-item" data-panel="maptools" type="button"><span class="mi mi-map"></span>Map<span class="chev">▾</span></button>
         <div class="sub" data-for="maptools">
-          <button type="button" data-action="bookmark">Bookmarks</button>
-          <button type="button" data-action="clear-highlight">Clear Highlights</button>
-          <button type="button" data-action="clear-map">Clear Map</button>
-          <button type="button" data-action="geocode">Geocode Address</button>
-          <button type="button" data-action="layers">Layer Control</button>
-          <button type="button" data-action="refresh">Update Map</button>
+          <button type="button" data-action="bookmark"><span class="mi mi-bookmark"></span>Bookmarks</button>
+          <button type="button" data-action="clear-highlight"><span class="mi mi-highlight"></span>Clear Highlights</button>
+          <button type="button" data-action="clear-map"><span class="mi mi-clearmap"></span>Clear Map</button>
+          <button type="button" data-action="geocode"><span class="mi mi-geocode"></span>Geocode Address</button>
+          <button type="button" data-action="layers"><span class="mi mi-layers"></span>Layer Control</button>
+          <button type="button" data-action="refresh"><span class="mi mi-refresh"></span>Update Map</button>
         </div>
-        <button class="nav-item" data-panel="alarms" type="button"><span class="ico">☰</span>Alarm Viewer</button>
-        <button class="nav-item" data-panel="notes" type="button"><span class="ico">☰</span>Field Notes</button>
-        <button class="nav-item" data-panel="log" type="button"><span class="ico">☰</span>Log</button>
-        <button class="nav-item" data-panel="settings" type="button"><span class="ico">⚙</span>Settings</button>
+        <button class="nav-item" data-panel="alarms" type="button"><span class="mi mi-alarm"></span>Alarm Viewer</button>
+        <button class="nav-item" data-panel="notes" type="button"><span class="mi mi-note"></span>Field Notes</button>
+        <button class="nav-item" data-panel="log" type="button"><span class="mi mi-log"></span>Log</button>
+        <button class="nav-item" data-panel="settings" type="button"><span class="mi mi-settings"></span>Settings</button>
       </nav>
     </aside>
     <main>
@@ -100,23 +98,8 @@
         <button type="button" data-map="satellite">Satellite</button>
         <button type="button" data-map="hybrid">Hybrid</button>
       </div>
-      <div id="draw-bar">
-        <button type="button" data-draw="select" class="active">Select</button>
-        <button type="button" data-draw="bdg">Building</button>
-        <button type="button" data-draw="cab">Cable</button>
-        <button type="button" data-draw="ap">Access Point</button>
-        <button type="button" data-draw="sp">Splice</button>
-        <button type="button" data-draw="tp">Term Point</button>
-        <button type="button" data-draw="pole">Pole</button>
-        <button type="button" data-draw="sla">Slack</button>
-        <button type="button" data-draw="db">Duct Bank</button>
-        <button type="button" data-draw="pln">Aerial Strand</button>
-        <button type="button" data-draw="planl">Plan Line</button>
-        <button type="button" data-draw="planp">Plan Point</button>
-        <button type="button" id="finish-draw" hidden>Finish</button>
-        <button type="button" id="cancel-draw" hidden>Cancel</button>
-      </div>
       <div id="status-bar"><span id="scale-label"></span><span id="coords"></span></div>
+      <div id="layer-legend"></div>
       <div id="context-menu" hidden></div>
       <section id="float-panel" hidden>
         <header>
