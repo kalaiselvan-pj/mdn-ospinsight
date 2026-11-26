@@ -7,6 +7,8 @@
   "scripts": {
     "start": "node server/index.js",
     "setup": "node scripts/setup-db.js",
+    "dump": "node scripts/make-dump.js",
+    "restore": "node scripts/restore-db.js",
     "harvest": "node scripts/harvest-osp.js",
     "import": "node scripts/import-data.js"
   },
